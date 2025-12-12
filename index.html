@@ -1,28 +1,20 @@
- <!doctype html>
-<html lang="pt-BR">
+ <!DOCTYPE html>
+<html lang="pt-br">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Platformer — Menina Aventureira (Template)</title>
-  <link rel="stylesheet" href="css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aventura Pixel Art da Menina</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>Menina Aventureira — Demo</h1>
-    <div id="hud">
-      <span id="score">Score: 0</span>
-      <button id="restart">Reiniciar</button>
+    <div id="game-container">
+        <h1 id="level-title">Carregando Jogo...</h1> 
+        <canvas id="game-canvas" width="800" height="400"></canvas>
+        <div id="info-bar">
+            <span>Moedas: <span id="coin-count">0</span></span>
+            <span style="margin-left: 20px;">Vidas: <span id="life-count">3</span></span>
+        </div>
     </div>
-  </header>
-
-  <main>
-    <canvas id="game" width="800" height="450"></canvas>
-  </main>
-
-  <footer>
-    <small>Template de jogo plataforma — personalize os assets e níveis.</small>
-  </footer>
-
-  <script src="js/main.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
