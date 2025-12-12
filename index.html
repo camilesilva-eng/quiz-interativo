@@ -1,31 +1,17 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+ <!DOCTYPE html>
+<html lang="pt-br">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Quiz Interativo</title>
-
-    <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Jogo Plataforma</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-    <div id="quiz-box">
-        <h2>Quiz Interativo</h2>
-
-        <p id="question"></p>
-
-        <div id="answers"></div>
-
-        <button id="nextBtn" onclick="nextQuestion()">Próxima Pergunta</button>
-
-        <div id="final">
-            <h2>Fim do Quiz!</h2>
-            <p id="scoreText"></p>
-            <button onclick="restart()">Jogar Novamente</button>
-        </div>
+    <div id="game-container">
+        <h1>Meu Jogo Plataforma Simples</h1>
+        <canvas id="game-canvas" width="800" height="600"></canvas>
     </div>
 
     <script src="script.js"></script>
 </body>
 </html>
-
