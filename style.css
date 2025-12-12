@@ -1,24 +1,39 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-    font-family: Arial, sans-serif;
-    background-color: #333; /* Fundo escuro */
-    color: #fff;
-    display: flex;
-    justify-content: center; /* Centraliza horizontalmente */
-    align-items: center;     /* Centraliza verticalmente (se houver altura suficiente) */
-    min-height: 100vh;
-    margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: linear-gradient(#87CEFA, #bfe7ff);
+  color: #111;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  align-items: center;
 }
 
-#game-container {
-    text-align: center;
-    padding: 20px;
-    border: 3px solid #00f; /* Borda visível para o contêiner do jogo */
-    background-color: #222;
-    border-radius: 10px;
+header {
+  width: 100%;
+  max-width: 900px;
+  margin: 16px;
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-#game-canvas {
-    border: 1px solid #fff;
-    background-color: #aaf; /* Fundo do Canvas do jogo (céu claro) */
-    display: block; /* Remove margens indesejadas */
+h1 { font-size: 20px; }
+
+#hud { display:flex; gap: 12px; align-items:center; }
+#hud button { padding: 6px 10px; border-radius:6px; border: none; cursor:pointer; }
+
+main {
+  width: 100%;
+  max-width: 900px;
+  display:flex;
+  justify-content:center;
+  margin-bottom: 20px;
 }
+
+canvas {
+  border: 6px solid #2c3e50;
+  background: linear-gradient(#9bd5ff, #eaf7ff);
+  image-rendering: pixelated; /* bom pra pixel art */
+}
+footer { margin-bottom: 20px; }
