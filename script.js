@@ -1,223 +1,311 @@
-// Obtém o elemento canvas e o contexto 2D
-const canvas = document.getElementById('game-canvas');
+// Simple 2D platformer template (Canvas)
+// Estrutura: player, tile map, moedas, inimigo simples, score
+
+const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
-// --- 1. Carregamento do Sprite (NOVO) ---
-const playerSprite = new Image();
-playerSprite.src = 'girl_sprite.png'; // CERTIFIQUE-SE QUE ESTE ARQUIVO EXISTE!
+const SCALE = 2; // use com sprites pixelados
+const W = canvas.width;
+const H = canvas.height;
 
-// Se o sprite não for quadrado, ajuste as dimensões:
-const PLAYER_WIDTH = 32;  // Largura do seu sprite
-const PLAYER_HEIGHT = 32; // Altura do seu sprite
-
-// --- Configurações Globais ---
-const GAME_WIDTH = canvas.width;
-const GAME_HEIGHT = canvas.height;
-const GRAVITY = 0.8; 
-const JUMP_VELOCITY = -17; 
-const MOVE_SPEED = 5;
-
-// --- Objeto Jogador ---
-let player = {
-    x: 50,
-    y: GAME_HEIGHT - 80, 
-    width: PLAYER_WIDTH,    // Usando a largura do sprite
-    height: PLAYER_HEIGHT,  // Usando a altura do sprite
-    velocityX: 0,
-    velocityY: 0,
-    isGrounded: false 
+// Assets (substitua pelas suas imagens em /assets)
+const assets = {
+  player: 'assets/girl.png',
+  tiles: 'assets/tiles.png',
+  coin: 'assets/coin.png',
+  enemy: 'assets/enemy.png'
 };
 
-// ... [O restante da sua classe Platform e Goal permanece o mesmo] ...
+let images = {};
+let keys = {};
 
-class Platform {
-    constructor(x, y, w, h, color = 'green') {
-        this.x = x;
-        this.y = y;
-        this.width = w;
-        this.height = h;
-        this.color = color;
-    }
+// Load imagens simples
+function loadImages(list, cb) {
+  let toLoad = Object.keys(list).length;
+  for (let k in list) {
+    const img = new Image();
+    img.src = list[k];
+    img.onload = () => {
+      images[k] = img;
+      toLoad--;
+      if (toLoad === 0) cb();
+    };
+    img.onerror = () => {
+      console.warn(`Falha ao carregar ${list[k]}. Verifique o caminho em assets.`);
+      images[k] = null;
+      toLoad--;
+      if (toLoad === 0) cb();
+    };
+  }
 }
 
-class Goal extends Platform {
-    constructor(x, y, w, h) {
-        super(x, y, w, h, 'yellow');
-    }
-}
+// --- Game state ---
+const gravity = 0.9;
+let score = 0;
+let gameOver = false;
 
-// Definição das Fases (MANTIDO)
-const levels = [
-    {
-        name: "Fase Fácil",
-        platforms: [
-            new Platform(0, GAME_HEIGHT - 50, GAME_WIDTH, 50, 'darkgreen'),
-            new Platform(200, GAME_HEIGHT - 150, 150, 20),
-            new Platform(450, GAME_HEIGHT - 250, 150, 20),
-            new Goal(GAME_WIDTH - 70, GAME_HEIGHT - 100, 50, 50)
-        ],
-        playerStart: { x: 50, y: GAME_HEIGHT - 80 }
-    },
-    {
-        name: "Fase Difícil",
-        platforms: [
-            new Platform(0, GAME_HEIGHT - 50, GAME_WIDTH, 50, 'darkred'),
-            new Platform(100, GAME_HEIGHT - 100, 50, 20), 
-            new Platform(300, GAME_HEIGHT - 250, 200, 20), 
-            new Platform(600, GAME_HEIGHT - 150, 100, 20), 
-            new Goal(GAME_WIDTH - 70, GAME_HEIGHT - 100, 50, 50)
-        ],
-        playerStart: { x: 50, y: GAME_HEIGHT - 80 }
-    }
+// Tile system (simples): 0 = vazio, 1 = plataforma sólida
+const tileSize = 32;
+const mapCols = Math.floor(W / tileSize);
+const mapRows = Math.floor(H / tileSize);
+
+// Exemplo de nível (matriz)
+const level = [
+  // cada número representa uma coluna de tiles; aqui criamos linhas visualmente
 ];
 
-let currentLevelIndex = 0;
-let currentPlatforms = [];
-let currentGoal;
+// cria um nível simples: chão + alguns blocos
+function makeLevel() {
+  const rows = mapRows;
+  const cols = mapCols;
+  const m = Array.from({length: rows}, () => Array(cols).fill(0));
 
-function loadLevel(index) {
-    if (index >= levels.length) {
-        alert("Parabéns! Você completou todas as fases!");
-        currentLevelIndex = 0; 
-    }
+  // chão nas últimas 2 linhas
+  for (let c = 0; c < cols; c++) {
+    m[rows-1][c] = 1;
+    m[rows-2][c] = 1;
+  }
 
-    const levelData = levels[currentLevelIndex];
-    document.querySelector('h1').textContent = `Fase Atual: ${levelData.name}`;
-
-    currentPlatforms = levelData.platforms.filter(p => !(p instanceof Goal));
-    currentGoal = levelData.platforms.find(p => p instanceof Goal);
-    
-    player.x = levelData.playerStart.x;
-    player.y = levelData.playerStart.y;
-    player.velocityY = 0;
-    player.velocityX = 0;
-    player.isGrounded = false;
+  // alguns blocos soltos
+  m[rows-4][5] = 1;
+  m[rows-6][10] = 1;
+  m[rows-5][14] = 1;
+  m[rows-7][20] = 1;
+  return m;
 }
+let tileMap = makeLevel();
 
-function checkCollision(objA, objB) {
-    return objA.x < objB.x + objB.width &&
-           objA.x + objA.width > objB.x &&
-           objA.y < objB.y + objB.height &&
-           objA.y + objA.height > objB.y;
-}
+// Moedas (posições em tiles)
+let coins = [
+  {x: 5*tileSize, y: (mapRows-5)*tileSize, taken:false},
+  {x: 10*tileSize, y: (mapRows-7)*tileSize, taken:false},
+  {x: 14*tileSize, y: (mapRows-6)*tileSize, taken:false}
+];
 
-function applyPhysicsAndCollisions() {
-    // ... [A lógica de física e colisão permanece a mesma] ...
-    
-    // 1. Aplicar gravidade
-    if (!player.isGrounded) {
-        player.velocityY += GRAVITY;
-    }
-    
-    // 2. Atualizar posição com velocidade
-    player.x += player.velocityX;
-    player.y += player.velocityY;
+// Inimigo simples
+let enemy = {x: 500, y: (mapRows-3)*tileSize - 32, w: 32, h: 32, dir: -1, speed: 1.2};
 
-    player.isGrounded = false;
-    
-    // 3. Checar colisão com Plataformas
-    [...currentPlatforms, currentGoal].forEach(platform => {
-        // Colisão vertical (de cima)
-        if (player.velocityY >= 0 && 
-            player.x < platform.x + platform.width &&
-            player.x + player.width > platform.x &&
-            player.y + player.height > platform.y &&
-            player.y < platform.y) 
-        {
-            // Pousar na plataforma
-            player.velocityY = 0;
-            player.y = platform.y - player.height;
-            player.isGrounded = true;
-        }
-
-        // Colisão com o objetivo (Goal)
-        if (platform === currentGoal && checkCollision(player, currentGoal)) {
-            currentLevelIndex++;
-            loadLevel(currentLevelIndex);
-        }
-    });
-
-    // 4. Checar limites da tela 
-    if (player.x < 0) player.x = 0;
-    if (player.x + player.width > GAME_WIDTH) player.x = GAME_WIDTH - player.width;
-
-    // 5. Game Over (Se cair para fora da tela)
-    if (player.y > GAME_HEIGHT) {
-        alert(`Game Over! Você caiu. Reiniciando a fase ${levels[currentLevelIndex].name}.`);
-        loadLevel(currentLevelIndex);
-    }
-}
-
-// --- Funções de Desenho (ATUALIZADA) ---
-
-function drawPlayer() {
-    // Desenha a imagem do sprite
-    ctx.drawImage(
-        playerSprite, 
-        player.x, 
-        player.y, 
-        player.width, 
-        player.height
-    );
-}
-
-function draw() {
-    // Limpa a tela
-    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-    // Desenha plataformas
-    [...currentPlatforms, currentGoal].forEach(platform => {
-        ctx.fillStyle = platform.color;
-        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-
-        if (platform === currentGoal) {
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
-        }
-    });
-    
-    // Desenha o Jogador
-    drawPlayer();
-}
-
-// --- Loop Principal do Jogo e Controles (MANTIDO) ---
-
-function gameLoop() {
-    applyPhysicsAndCollisions();
-    draw();
-    requestAnimationFrame(gameLoop);
-}
-
-document.addEventListener('keydown', (e) => {
-    if ((e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') && player.isGrounded) {
-        player.velocityY = JUMP_VELOCITY;
-        player.isGrounded = false; 
-    }
-    if (e.key === 'ArrowLeft' || e.key === 'a') {
-        player.velocityX = -MOVE_SPEED;
-    } else if (e.key === 'ArrowRight' || e.key === 'd') {
-        player.velocityX = MOVE_SPEED;
-    }
-});
-
-document.addEventListener('keyup', (e) => {
-    if ((e.key === 'ArrowLeft' || e.key === 'a') && player.velocityX < 0) {
-        player.velocityX = 0;
-    } else if ((e.key === 'ArrowRight' || e.key === 'd') && player.velocityX > 0) {
-        player.velocityX = 0;
-    }
-});
-
-// --- Inicia o Jogo ---
-
-// Espera o sprite carregar antes de iniciar o jogo para evitar erros.
-playerSprite.onload = () => {
-    loadLevel(currentLevelIndex);
-    gameLoop();
+// Player
+const player = {
+  x: 80,
+  y: (mapRows-4)*tileSize - 32,
+  w: 28,
+  h: 32,
+  vx: 0,
+  vy: 0,
+  speed: 2.6,
+  onGround: false,
+  facing: 1 // 1 direita, -1 esquerda
 };
-// Se o sprite já estiver no cache, inicia imediatamente:
-if (playerSprite.complete) {
-    loadLevel(currentLevelIndex);
-    gameLoop();
+
+function rectsOverlap(a,b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x &&
+         a.y < b.y + b.h && a.y + a.h > b.y;
 }
+
+// Tile collision helper
+function tileAtPixel(x,y) {
+  const col = Math.floor(x / tileSize);
+  const row = Math.floor(y / tileSize);
+  if (row < 0 || col < 0 || row >= tileMap.length || col >= tileMap[0].length) return 0;
+  return tileMap[row][col];
+}
+
+function collideWithTiles(obj) {
+  // simples: verifica quatro cantos
+  obj.onGround = false;
+  // prever movimento vertical
+  obj.y += obj.vy;
+  // checar colisões verticais
+  const points = [
+    {x: obj.x + 2, y: obj.y + obj.h},
+    {x: obj.x + obj.w - 2, y: obj.y + obj.h},
+    {x: obj.x + 2, y: obj.y},
+    {x: obj.x + obj.w - 2, y: obj.y}
+  ];
+  for (const p of points) {
+    if (tileAtPixel(p.x, p.y) === 1) {
+      // se colidiu por baixo (estava caindo)
+      if (obj.vy > 0) {
+        obj.y = Math.floor((p.y) / tileSize) * tileSize - obj.h;
+        obj.vy = 0;
+        obj.onGround = true;
+      } else if (obj.vy < 0) {
+        // bateu a cabeça
+        obj.y = (Math.floor(p.y / tileSize) + 1) * tileSize;
+        obj.vy = 0;
+      }
+    }
+  }
+
+  // prever movimento horizontal
+  obj.x += obj.vx;
+  const hpoints = [
+    {x: obj.x, y: obj.y + 4},
+    {x: obj.x + obj.w, y: obj.y + 4},
+    {x: obj.x, y: obj.y + obj.h - 4},
+    {x: obj.x + obj.w, y: obj.y + obj.h - 4}
+  ];
+  for (const p of hpoints) {
+    if (tileAtPixel(p.x, p.y) === 1) {
+      // colisão horizontal: simples correção
+      if (obj.vx > 0) {
+        obj.x = Math.floor(p.x / tileSize) * tileSize - obj.w - 0.01;
+        obj.vx = 0;
+      } else if (obj.vx < 0) {
+        obj.x = (Math.floor(p.x / tileSize) + 1) * tileSize + 0.01;
+        obj.vx = 0;
+      }
+    }
+  }
+}
+
+// Input
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+});
+window.addEventListener('keyup', e => {
+  keys[e.code] = false;
+});
+
+// Restart
+document.getElementById('restart').addEventListener('click', () => {
+  restart();
+});
+
+function restart() {
+  tileMap = makeLevel();
+  coins.forEach(c => c.taken = false);
+  score = 0;
+  player.x = 80; player.y = (mapRows-4)*tileSize - 32; player.vx = 0; player.vy = 0;
+  gameOver = false;
+}
+
+// Update loop
+function update(dt) {
+  if (gameOver) return;
+
+  // Player controls: left/right/jump
+  let accel = 0;
+  if (keys['ArrowLeft'] || keys['KeyA']) { accel = -1; player.facing = -1; }
+  if (keys['ArrowRight'] || keys['KeyD']) { accel = 1; player.facing = 1; }
+
+  player.vx = accel * player.speed;
+  // jump
+  if ((keys['ArrowUp'] || keys['KeyW'] || keys['Space']) && player.onGround) {
+    player.vy = -14;
+    player.onGround = false;
+  }
+
+  // gravity
+  player.vy += gravity;
+  if (player.vy > 16) player.vy = 16;
+
+  // Apply collisions with tiles
+  collideWithTiles(player);
+
+  // Coins
+  coins.forEach(c => {
+    if (!c.taken) {
+      const coinRect = {x:c.x, y:c.y, w:24, h:24};
+      if (rectsOverlap(player, coinRect)) {
+        c.taken = true;
+        score += 10;
+        updateScore();
+      }
+    }
+  });
+
+  // Enemy simple patrol
+  enemy.x += enemy.dir * enemy.speed;
+  // inverte ao encostar em plataformas
+  const leftFoot = {x: enemy.x, y: enemy.y + enemy.h + 2};
+  const rightFoot = {x: enemy.x + enemy.w, y: enemy.y + enemy.h + 2};
+  if (tileAtPixel(leftFoot.x, leftFoot.y) === 0 || tileAtPixel(rightFoot.x, rightFoot.y) === 0) {
+    enemy.dir *= -1;
+  }
+  // bate no player?
+  if (rectsOverlap(player, enemy)) {
+    // se o player estiver caindo sobre o inimigo, derrota o inimigo
+    if (player.vy > 0 && (player.y + player.h - enemy.y) < 16) {
+      // stomp
+      score += 20;
+      enemy.x = -1000; // tira temporariamente
+      player.vy = -8;
+      updateScore();
+    } else {
+      // jogador perde: restart simples
+      gameOver = true;
+      setTimeout(() => alert('Você perdeu! Aperte Reiniciar.'), 50);
+    }
+  }
+}
+
+function updateScore() {
+  document.getElementById('score').textContent = `Score: ${score}`;
+}
+
+// Draw
+function draw() {
+  ctx.clearRect(0,0,W,H);
+
+  // draw tiles
+  for (let r=0;r<tileMap.length;r++){
+    for (let c=0;c<tileMap[0].length;c++){
+      if (tileMap[r][c] === 1) {
+        ctx.fillStyle = "#7b5e3c"; // cor temporária
+        ctx.fillRect(c*tileSize, r*tileSize, tileSize, tileSize);
+        // se tiver tileset: desenhe imagem em vez do fillRect
+        // if (images.tiles) ctx.drawImage(images.tiles, ...)
+      }
+    }
+  }
+
+  // Draw coins
+  coins.forEach(c => {
+    if (!c.taken) {
+      if (images.coin) {
+        ctx.drawImage(images.coin, c.x, c.y, 24, 24);
+      } else {
+        ctx.fillStyle = 'gold';
+        ctx.beginPath();
+        ctx.arc(c.x+12, c.y+12, 10, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  });
+
+  // Draw enemy
+  if (enemy.x > -500) {
+    if (images.enemy) ctx.drawImage(images.enemy, enemy.x, enemy.y, enemy.w, enemy.h);
+    else {
+      ctx.fillStyle = 'crimson';
+      ctx.fillRect(enemy.x, enemy.y, enemy.w, enemy.h);
+    }
+  }
+
+  // Draw player (placeholder)
+  if (images.player) {
+    // desenha sprite (ajuste conforme seu spritesheet)
+    ctx.drawImage(images.player, player.x, player.y, player.w, player.h);
+  } else {
+    ctx.fillStyle = '#2a9d8f';
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+  }
+}
+
+// Main loop
+let last = 0;
+function loop(ts) {
+  const dt = (ts - last) / 1000;
+  last = ts;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// Start
+loadImages(assets, () => {
+  updateScore();
+  requestAnimationFrame(loop);
+});
