@@ -1,39 +1,35 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  background: linear-gradient(#87CEFA, #bfe7ff);
-  color: #111;
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  align-items: center;
+    font-family: Arial, sans-serif;
+    background-color: #2a2a2a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
 }
 
-header {
-  width: 100%;
-  max-width: 900px;
-  margin: 16px;
-  display:flex;
-  justify-content: space-between;
-  align-items: center;
+#game-container {
+    text-align: center;
+    border: 5px solid #444;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    background-color: #fff;
 }
 
-h1 { font-size: 20px; }
-
-#hud { display:flex; gap: 12px; align-items:center; }
-#hud button { padding: 6px 10px; border-radius:6px; border: none; cursor:pointer; }
-
-main {
-  width: 100%;
-  max-width: 900px;
-  display:flex;
-  justify-content:center;
-  margin-bottom: 20px;
+#level-title {
+    color: #f7f7f7;
+    margin: 10px 0;
 }
 
-canvas {
-  border: 6px solid #2c3e50;
-  background: linear-gradient(#9bd5ff, #eaf7ff);
-  image-rendering: pixelated; /* bom pra pixel art */
+#game-canvas {
+    /* Fundo estilo Mario: Céu azul claro */
+    background: linear-gradient(to bottom, #a7d7f9 0%, #6ab7e9 100%); 
+    display: block; 
 }
-footer { margin-bottom: 20px; }
+
+#info-bar {
+    padding: 10px;
+    background-color: #111;
+    color: #ffcc00; /* Cor de moeda */
+    font-weight: bold;
+    text-align: left;
+}
