@@ -1,84 +1,223 @@
-// Obtém o elemento canvas e o contexto 2D para desenhar
+// Obtém o elemento canvas e o contexto 2D
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 
-// --- Configurações do Jogo ---
+// --- 1. Carregamento do Sprite (NOVO) ---
+const playerSprite = new Image();
+playerSprite.src = 'girl_sprite.png'; // CERTIFIQUE-SE QUE ESTE ARQUIVO EXISTE!
+
+// Se o sprite não for quadrado, ajuste as dimensões:
+const PLAYER_WIDTH = 32;  // Largura do seu sprite
+const PLAYER_HEIGHT = 32; // Altura do seu sprite
+
+// --- Configurações Globais ---
 const GAME_WIDTH = canvas.width;
 const GAME_HEIGHT = canvas.height;
-const GRAVITY = 0.98;
-const JUMP_STRENGTH = 15;
+const GRAVITY = 0.8; 
+const JUMP_VELOCITY = -17; 
+const MOVE_SPEED = 5;
 
 // --- Objeto Jogador ---
 let player = {
     x: 50,
-    y: GAME_HEIGHT - 80, // Quase no chão
-    width: 30,
-    height: 30,
-    color: 'blue',
+    y: GAME_HEIGHT - 80, 
+    width: PLAYER_WIDTH,    // Usando a largura do sprite
+    height: PLAYER_HEIGHT,  // Usando a altura do sprite
     velocityX: 0,
     velocityY: 0,
-    isJumping: false
+    isGrounded: false 
 };
 
-// --- Funções de Desenho ---
-function drawPlayer() {
-    ctx.fillStyle = player.color;
-    ctx.fillRect(player.x, player.y, player.width, player.height);
+// ... [O restante da sua classe Platform e Goal permanece o mesmo] ...
+
+class Platform {
+    constructor(x, y, w, h, color = 'green') {
+        this.x = x;
+        this.y = y;
+        this.width = w;
+        this.height = h;
+        this.color = color;
+    }
 }
 
-function drawGround() {
-    ctx.fillStyle = 'green';
-    // Desenha o chão na parte inferior
-    ctx.fillRect(0, GAME_HEIGHT - 50, GAME_WIDTH, 50);
+class Goal extends Platform {
+    constructor(x, y, w, h) {
+        super(x, y, w, h, 'yellow');
+    }
 }
 
-function updateGame() {
-    // 1. Limpa a tela a cada frame
-    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+// Definição das Fases (MANTIDO)
+const levels = [
+    {
+        name: "Fase Fácil",
+        platforms: [
+            new Platform(0, GAME_HEIGHT - 50, GAME_WIDTH, 50, 'darkgreen'),
+            new Platform(200, GAME_HEIGHT - 150, 150, 20),
+            new Platform(450, GAME_HEIGHT - 250, 150, 20),
+            new Goal(GAME_WIDTH - 70, GAME_HEIGHT - 100, 50, 50)
+        ],
+        playerStart: { x: 50, y: GAME_HEIGHT - 80 }
+    },
+    {
+        name: "Fase Difícil",
+        platforms: [
+            new Platform(0, GAME_HEIGHT - 50, GAME_WIDTH, 50, 'darkred'),
+            new Platform(100, GAME_HEIGHT - 100, 50, 20), 
+            new Platform(300, GAME_HEIGHT - 250, 200, 20), 
+            new Platform(600, GAME_HEIGHT - 150, 100, 20), 
+            new Goal(GAME_WIDTH - 70, GAME_HEIGHT - 100, 50, 50)
+        ],
+        playerStart: { x: 50, y: GAME_HEIGHT - 80 }
+    }
+];
 
-    // 2. Aplicar Gravidade
-    if (player.y + player.height < GAME_HEIGHT - 50) {
-        player.velocityY += GRAVITY;
-    } else {
-        // Colidir com o "chão"
-        player.velocityY = 0;
-        player.y = GAME_HEIGHT - 50 - player.height;
-        player.isJumping = false;
+let currentLevelIndex = 0;
+let currentPlatforms = [];
+let currentGoal;
+
+function loadLevel(index) {
+    if (index >= levels.length) {
+        alert("Parabéns! Você completou todas as fases!");
+        currentLevelIndex = 0; 
     }
 
-    // 3. Atualizar Posição
+    const levelData = levels[currentLevelIndex];
+    document.querySelector('h1').textContent = `Fase Atual: ${levelData.name}`;
+
+    currentPlatforms = levelData.platforms.filter(p => !(p instanceof Goal));
+    currentGoal = levelData.platforms.find(p => p instanceof Goal);
+    
+    player.x = levelData.playerStart.x;
+    player.y = levelData.playerStart.y;
+    player.velocityY = 0;
+    player.velocityX = 0;
+    player.isGrounded = false;
+}
+
+function checkCollision(objA, objB) {
+    return objA.x < objB.x + objB.width &&
+           objA.x + objA.width > objB.x &&
+           objA.y < objB.y + objB.height &&
+           objA.y + objA.height > objB.y;
+}
+
+function applyPhysicsAndCollisions() {
+    // ... [A lógica de física e colisão permanece a mesma] ...
+    
+    // 1. Aplicar gravidade
+    if (!player.isGrounded) {
+        player.velocityY += GRAVITY;
+    }
+    
+    // 2. Atualizar posição com velocidade
     player.x += player.velocityX;
     player.y += player.velocityY;
 
-    // 4. Desenhar elementos
-    drawGround();
-    drawPlayer();
+    player.isGrounded = false;
+    
+    // 3. Checar colisão com Plataformas
+    [...currentPlatforms, currentGoal].forEach(platform => {
+        // Colisão vertical (de cima)
+        if (player.velocityY >= 0 && 
+            player.x < platform.x + platform.width &&
+            player.x + player.width > platform.x &&
+            player.y + player.height > platform.y &&
+            player.y < platform.y) 
+        {
+            // Pousar na plataforma
+            player.velocityY = 0;
+            player.y = platform.y - player.height;
+            player.isGrounded = true;
+        }
 
-    // 5. Loop do jogo
-    requestAnimationFrame(updateGame);
+        // Colisão com o objetivo (Goal)
+        if (platform === currentGoal && checkCollision(player, currentGoal)) {
+            currentLevelIndex++;
+            loadLevel(currentLevelIndex);
+        }
+    });
+
+    // 4. Checar limites da tela 
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.width > GAME_WIDTH) player.x = GAME_WIDTH - player.width;
+
+    // 5. Game Over (Se cair para fora da tela)
+    if (player.y > GAME_HEIGHT) {
+        alert(`Game Over! Você caiu. Reiniciando a fase ${levels[currentLevelIndex].name}.`);
+        loadLevel(currentLevelIndex);
+    }
 }
 
-// --- Controle de Eventos (Teclado) ---
+// --- Funções de Desenho (ATUALIZADA) ---
+
+function drawPlayer() {
+    // Desenha a imagem do sprite
+    ctx.drawImage(
+        playerSprite, 
+        player.x, 
+        player.y, 
+        player.width, 
+        player.height
+    );
+}
+
+function draw() {
+    // Limpa a tela
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Desenha plataformas
+    [...currentPlatforms, currentGoal].forEach(platform => {
+        ctx.fillStyle = platform.color;
+        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+
+        if (platform === currentGoal) {
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+        }
+    });
+    
+    // Desenha o Jogador
+    drawPlayer();
+}
+
+// --- Loop Principal do Jogo e Controles (MANTIDO) ---
+
+function gameLoop() {
+    applyPhysicsAndCollisions();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
 document.addEventListener('keydown', (e) => {
-    // Tecla Espaço ou Cima para pular
-    if ((e.key === ' ' || e.key === 'ArrowUp') && !player.isJumping) {
-        player.velocityY = -JUMP_STRENGTH; // Força para cima
-        player.isJumping = true;
+    if ((e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') && player.isGrounded) {
+        player.velocityY = JUMP_VELOCITY;
+        player.isGrounded = false; 
     }
-    // Tecla Esquerda/Direita para mover (simples)
-    if (e.key === 'ArrowLeft') {
-        player.velocityX = -3;
-    } else if (e.key === 'ArrowRight') {
-        player.velocityX = 3;
+    if (e.key === 'ArrowLeft' || e.key === 'a') {
+        player.velocityX = -MOVE_SPEED;
+    } else if (e.key === 'ArrowRight' || e.key === 'd') {
+        player.velocityX = MOVE_SPEED;
     }
 });
 
 document.addEventListener('keyup', (e) => {
-    // Parar de mover horizontalmente quando a tecla é solta
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    if ((e.key === 'ArrowLeft' || e.key === 'a') && player.velocityX < 0) {
+        player.velocityX = 0;
+    } else if ((e.key === 'ArrowRight' || e.key === 'd') && player.velocityX > 0) {
         player.velocityX = 0;
     }
 });
 
-// Inicia o Loop do Jogo
-updateGame();
+// --- Inicia o Jogo ---
+
+// Espera o sprite carregar antes de iniciar o jogo para evitar erros.
+playerSprite.onload = () => {
+    loadLevel(currentLevelIndex);
+    gameLoop();
+};
+// Se o sprite já estiver no cache, inicia imediatamente:
+if (playerSprite.complete) {
+    loadLevel(currentLevelIndex);
+    gameLoop();
+}
