@@ -1,85 +1,84 @@
-const questions = [
-    {
-        question: "Qual é o maior planeta do Sistema Solar?",
-        answers: ["Terra", "Marte", "Júpiter", "Vênus"],
-        correct: 2
-    },
-    {
-        question: "Quem descobriu o Brasil?",
-        answers: ["Pedro Álvares Cabral", "Cristóvão Colombo", "Dom Pedro I", "Vasco da Gama"],
-        correct: 0
-    },
-    {
-        question: "Qual país venceu a Copa de 2002?",
-        answers: ["Alemanha", "Brasil", "Argentina", "Itália"],
-        correct: 1
-    }
-];
+// Obtém o elemento canvas e o contexto 2D para desenhar
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
 
-let index = 0;
-let score = 0;
+// --- Configurações do Jogo ---
+const GAME_WIDTH = canvas.width;
+const GAME_HEIGHT = canvas.height;
+const GRAVITY = 0.98;
+const JUMP_STRENGTH = 15;
 
-function loadQuestion() {
-    document.getElementById("nextBtn").style.display = "none";
-    const q = questions[index];
+// --- Objeto Jogador ---
+let player = {
+    x: 50,
+    y: GAME_HEIGHT - 80, // Quase no chão
+    width: 30,
+    height: 30,
+    color: 'blue',
+    velocityX: 0,
+    velocityY: 0,
+    isJumping: false
+};
 
-    document.getElementById("question").innerText = q.question;
-    document.getElementById("answers").innerHTML = "";
-
-    q.answers.forEach((resposta, i) => {
-        const btn = document.createElement("button");
-        btn.innerText = resposta;
-        btn.onclick = () => checkAnswer(i, btn);
-        document.getElementById("answers").appendChild(btn);
-    });
+// --- Funções de Desenho ---
+function drawPlayer() {
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x, player.y, player.width, player.height);
 }
 
-function checkAnswer(i, btn) {
-    const q = questions[index];
-    const buttons = document.querySelectorAll("#answers button");
+function drawGround() {
+    ctx.fillStyle = 'green';
+    // Desenha o chão na parte inferior
+    ctx.fillRect(0, GAME_HEIGHT - 50, GAME_WIDTH, 50);
+}
 
-    buttons.forEach(b => b.disabled = true);
+function updateGame() {
+    // 1. Limpa a tela a cada frame
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    if (i === q.correct) {
-        btn.classList.add("correct");
-        score++;
+    // 2. Aplicar Gravidade
+    if (player.y + player.height < GAME_HEIGHT - 50) {
+        player.velocityY += GRAVITY;
     } else {
-        btn.classList.add("wrong");
-        buttons[q.correct].classList.add("correct");
+        // Colidir com o "chão"
+        player.velocityY = 0;
+        player.y = GAME_HEIGHT - 50 - player.height;
+        player.isJumping = false;
     }
 
-    document.getElementById("nextBtn").style.display = "block";
+    // 3. Atualizar Posição
+    player.x += player.velocityX;
+    player.y += player.velocityY;
+
+    // 4. Desenhar elementos
+    drawGround();
+    drawPlayer();
+
+    // 5. Loop do jogo
+    requestAnimationFrame(updateGame);
 }
 
-function nextQuestion() {
-    index++;
-    if (index >= questions.length) {
-        finishQuiz();
-    } else {
-        loadQuestion();
+// --- Controle de Eventos (Teclado) ---
+document.addEventListener('keydown', (e) => {
+    // Tecla Espaço ou Cima para pular
+    if ((e.key === ' ' || e.key === 'ArrowUp') && !player.isJumping) {
+        player.velocityY = -JUMP_STRENGTH; // Força para cima
+        player.isJumping = true;
     }
-}
+    // Tecla Esquerda/Direita para mover (simples)
+    if (e.key === 'ArrowLeft') {
+        player.velocityX = -3;
+    } else if (e.key === 'ArrowRight') {
+        player.velocityX = 3;
+    }
+});
 
-function finishQuiz() {
-    document.getElementById("question").style.display = "none";
-    document.getElementById("answers").style.display = "none";
-    document.getElementById("nextBtn").style.display = "none";
+document.addEventListener('keyup', (e) => {
+    // Parar de mover horizontalmente quando a tecla é solta
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        player.velocityX = 0;
+    }
+});
 
-    document.getElementById("final").style.display = "block";
-    document.getElementById("scoreText").innerText =
-        `Você acertou ${score} de ${questions.length} perguntas!`;
-}
-
-function restart() {
-    index = 0;
-    score = 0;
-
-    document.getElementById("question").style.display = "block";
-    document.getElementById("answers").style.display = "block";
-    document.getElementById("final").style.display = "none";
-
-    loadQuestion();
-}
-
-loadQuestion();
-
+// Inicia o Loop do Jogo
+updateGame();
