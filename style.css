@@ -1,6 +1,5 @@
 body {
-    /* Cor de fundo que imita uma estrada ou trilho */
-    background-color: #3d3d3d; 
+    background-color: #1a1a1a; 
     display: flex;
     justify-content: center;
     align-items: center;
@@ -12,52 +11,50 @@ body {
 
 #game-container {
     text-align: center;
-    border: 5px solid #222; /* Borda mais escura */
-    box-shadow: 0 0 25px rgba(0, 0, 0, 0.9); /* Sombra intensa para focar no jogo */
-    background-color: #1a1a1a; 
-    border-radius: 8px; /* Cantos levemente arredondados */
-    overflow: hidden; /* Garante que o conteúdo não vaze */
+    border: 5px solid #000;
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.9);
+    background-color: #0d0d0d; 
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 #level-title {
-    /* O título da fase é menos relevante no Endless Runner, vamos mantê-lo discreto */
-    color: #f7f7f7; 
-    margin: 5px 0; /* Menos margem */
+    /* Título que brilha no escuro */
+    color: #00ffff; /* Ciano/Azul claro */
+    margin: 5px 0;
     font-size: 1.2em;
-    text-shadow: 1px 1px #000;
+    text-shadow: 0 0 5px #00ffff;
 }
 
 #game-canvas {
-    /* Fundo da tela de jogo: Simula a pista ou o cenário (pode ser ajustado) */
-    background: linear-gradient(to bottom, #7f7f7f 0%, #a0a0a0 100%); 
+    /* Fundo Noturno: Gradiente de preto para azul marinho escuro */
+    background: linear-gradient(to bottom, #050510 0%, #101030 100%); 
     display: block;
     image-rendering: pixelated; 
 }
 
 #info-bar {
     padding: 10px 20px;
-    background-color: #000; /* Preto sólido para contraste máximo */
-    color: #fff; /* Texto branco */
+    background-color: #000;
+    color: #fff;
     font-weight: bold;
     text-align: center;
     display: flex;
-    /* Distribui Tempo, Moedas e Vidas uniformemente */
     justify-content: space-between; 
     align-items: center;
     font-size: 1.2em; 
-    border-top: 3px solid #333;
+    border-top: 3px solid #111;
 }
 
 #info-bar span {
-    padding: 0 15px; /* Espaçamento interno para os itens */
+    padding: 0 15px;
 }
 
-/* Cor de destaque para o contador de moedas (ouro) */
+/* Cores de destaque para contadores */
 #coin-count {
     color: #ffcc00; 
 }
 
-/* Cor de destaque para o contador de tempo/vida */
 #time-count, #life-count {
-    color: #00ff00; /* Neon verde para um toque retro */
+    color: #00ff00; 
 }
