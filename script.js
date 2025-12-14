@@ -1,55 +1,211 @@
-// 5. Dados da Fase (REMOVIDO - Agora é gerado dinamicamente)
-// ... (Remova o objeto 'levelData' grande) ...
+// --- script.js (Estilo Subway Surfers - Tema Noite) ---
 
-let currentLevelEntities = [];
+// 1. Configurações e Variáveis Iniciais
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const GAME_WIDTH = canvas.width;
+const GAME_HEIGHT = canvas.height;
 
-// Funções de Geração (Simples Gerador Básico de Obstáculos)
-function generateEntities() {
-    const LAST_ENTITY_X = currentLevelEntities.length > 0
-        ? currentLevelEntities[currentLevelEntities.length - 1].x
-        : GAME_WIDTH;
+// --- Parâmetros de Jogo ---
+const GRAVITY = 0.8;
+const JUMP_VELOCITY = -15;
+const LANE_SWITCH_SPEED = 8;
+const PLAYER_WIDTH = 32;
+const PLAYER_HEIGHT = 48;
+const WORLD_SPEED = 4;
 
-    // Apenas gera se a última entidade estiver perto o suficiente (distância mínima de 150 pixels)
-    if (LAST_ENTITY_X > GAME_WIDTH - 150) {
-        return;
+// Posições X fixas para as três pistas (baseado no centro do jogador)
+const LANES_X = [
+    GAME_WIDTH / 4,
+    GAME_WIDTH / 2,
+    GAME_WIDTH * 3 / 4
+];
+
+let coins = 0;
+let lives = 3;
+let gameTime = 0;
+let timerInterval = null;
+let gameRunning = false;
+
+// Variáveis específicas do Endless Runner
+let currentLane = 1;
+let targetX = LANES_X[currentLane] - PLAYER_WIDTH / 2;
+let generationDistance = 0; 
+
+// 2. Funções de Utilidade (Colisão)
+function checkAABB(objA, objB) {
+    return objA.x < objB.x + objB.width &&
+           objA.x + objA.width > objB.x &&
+           objA.y < objB.y + objB.height &&
+           objA.y + objA.height > objB.y;
+}
+
+// 3. Classes de Jogo
+class Entity {
+    constructor(x, y, w, h, type) {
+        this.x = x;
+        this.y = y;
+        this.width = w;
+        this.height = h;
+        this.type = type;
+        this.toRemove = false;
     }
-
-    // Geração de Entidades
-    // 1. Escolhe uma pista aleatória para o obstáculo
-    const LANE_INDEX = Math.floor(Math.random() * 3);
-    const X_POS = LANES_X[LANE_INDEX] - 15; // Ajuste para o centro da entidade (30px/2)
-
-    // 2. Decide se gera um inimigo ou uma moeda
-    const type = Math.random() < 0.6 ? 'enemy' : 'coin'; // 60% chance de ser inimigo
-    
-    // Posição Y no chão (base do canvas - altura da entidade)
-    const Y_POS = GAME_HEIGHT - 32 - (type === 'coin' ? 20 : 30); 
-
-    let newEntity;
-    if (type === 'enemy') {
-        // Inimigo (Obstáculo fixo que se move com o mundo)
-        newEntity = new Enemy(GAME_WIDTH, Y_POS, 0); // speed 0, só se move com o WORLD_SPEED
-    } else {
-        // Moeda
-        newEntity = new Coin(GAME_WIDTH, Y_POS);
-    }
-
-    currentLevelEntities.push(newEntity);
-    
-    // Geração de mais moedas (bônus na pista adjacente)
-    if (type === 'coin' && Math.random() < 0.5) {
-        const ADJACENT_LANE = (LANE_INDEX + 1) % 3;
-        const ADJACENT_X = LANES_X[ADJACENT_LANE] - 10;
-        currentLevelEntities.push(new Coin(GAME_WIDTH + 50, GAME_HEIGHT - 100)); // Moeda aérea
+    draw(color) {
+        ctx.fillStyle = color || 'grey';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
     }
 }
 
-// 6. Funções de Controle de Jogo (Simplificadas)
+class Platform extends Entity {
+    constructor(x, y, w, h, color = '#333333') { // Cor de Asfalto Escuro
+        super(x, y, w, h, 'platform');
+        this.color = color;
+    }
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+}
+
+class Coin extends Entity {
+    constructor(x, y) {
+        super(x, y, 20, 20, 'coin');
+    }
+    draw() {
+        ctx.fillStyle = 'yellow';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.strokeStyle = '#daa520';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+    }
+}
+
+class Enemy extends Entity {
+    constructor(x, y, speed) {
+        super(x, y, 30, 30, 'enemy');
+        this.speed = speed;
+        this.direction = 1;
+    }
+    update() {
+        // Inimigos fixos no endless runner
+    }
+    draw() {
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+}
+
+// REMOVIDA CLASSE GOAL
+
+// 4. Objeto Jogador
+let player = {
+    x: LANES_X[1] - PLAYER_WIDTH / 2,
+    y: GAME_HEIGHT - 32 - PLAYER_HEIGHT,
+    width: PLAYER_WIDTH,
+    height: PLAYER_HEIGHT,
+    velocityX: 0,
+    velocityY: 0,
+    isGrounded: true,
+    
+    update: function() {
+        if (!this.isGrounded) {
+            this.velocityY += GRAVITY;
+        }
+        this.y += this.velocityY;
+
+        const dx = targetX - this.x;
+        if (Math.abs(dx) > LANE_SWITCH_SPEED) {
+            this.x += Math.sign(dx) * LANE_SWITCH_SPEED;
+        } else {
+            this.x = targetX;
+        }
+    },
+
+    draw: function() {
+        // Azul claro para destacar na noite
+        ctx.fillStyle = 'lightblue'; 
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+};
+
+let currentLevelEntities = [];
+
+// Funções de Geração
+function generateEntities() {
+    // Distância mínima entre obstáculos (ajustável)
+    const MIN_DISTANCE = 250; 
+    let LAST_ENTITY_X = GAME_WIDTH;
+
+    if (currentLevelEntities.length > 0) {
+        // Encontra a entidade mais à direita
+        LAST_ENTITY_X = currentLevelEntities.reduce((max, e) => Math.max(max, e.x), -Infinity);
+    }
+
+    if (LAST_ENTITY_X > GAME_WIDTH - MIN_DISTANCE) {
+        return;
+    }
+
+    // Garante que a próxima entidade comece FORA da tela
+    const START_X = LAST_ENTITY_X > GAME_WIDTH ? LAST_ENTITY_X : GAME_WIDTH;
+
+    // Decide o número de pistas afetadas (1, 2 ou 3)
+    const affectedLanesCount = Math.floor(Math.random() * 3) + 1; // 1, 2 ou 3
+    const availableLanes = [0, 1, 2].sort(() => 0.5 - Math.random()); // Pistas aleatórias
+
+    // Define qual pista deve conter o item bom (moeda) ou o obstáculo
+    for (let i = 0; i < affectedLanesCount; i++) {
+        const LANE_INDEX = availableLanes[i];
+        const X_POS = LANES_X[LANE_INDEX] - 15;
+        const Y_POS_GROUND = GAME_HEIGHT - 32 - 30; // Altura do obstáculo no chão
+        
+        let newEntity;
+        
+        // 70% de chance de ser obstáculo (Enemy) no chão
+        if (Math.random() < 0.7) { 
+            newEntity = new Enemy(START_X + (i * 50), Y_POS_GROUND, 0); 
+        } else {
+            // 30% de chance de ser moeda
+            newEntity = new Coin(START_X + (i * 50), Y_POS_GROUND - 50); // Moeda flutuante
+        }
+
+        currentLevelEntities.push(newEntity);
+    }
+}
+
+// 6. Funções de Controle de Jogo
+function formatTime(totalSeconds) {
+    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+}
+
+function updateTimer() {
+    if (gameRunning) {
+        gameTime++;
+        document.getElementById('time-count').textContent = formatTime(gameTime);
+    }
+}
+
+function updateUI() {
+    document.getElementById('coin-count').textContent = coins;
+    document.getElementById('life-count').textContent = lives;
+    document.getElementById('level-title').textContent = "🌌 Corrida Infinita Noturna";
+    document.getElementById('time-count').textContent = formatTime(gameTime);
+}
+
+function resetPlayerPosition() {
+    currentLane = 1;
+    player.x = LANES_X[currentLane] - PLAYER_WIDTH / 2;
+    player.y = GAME_HEIGHT - 32 - PLAYER_HEIGHT; 
+    targetX = player.x;
+    player.velocityY = 0;
+    player.isGrounded = true;
+}
 
 function initializeGame() {
-    // Apenas um chão inicial
+    // Apenas o chão inicial
     currentLevelEntities = [
-        new Platform(0, GAME_HEIGHT - 32, GAME_WIDTH, 32, '#6c3b0d'),
+        new Platform(0, GAME_HEIGHT - 32, GAME_WIDTH, 32, '#333333'), // Chão de asfalto
     ];
     
     resetPlayerPosition();
@@ -57,8 +213,6 @@ function initializeGame() {
     gameTime = 0;
     updateUI();
 }
-
-// ... (handleWin é removido, pois o jogo nunca "vence" formalmente) ...
 
 function handleDeath() {
     lives--;
@@ -77,60 +231,40 @@ function handleDeath() {
     }
 }
 
-function resetPlayerPosition() {
-    // Move o jogador para a pista central no início ou morte
-    currentLane = 1;
-    player.x = LANES_X[currentLane] - PLAYER_WIDTH / 2;
-    player.y = GAME_HEIGHT - 32 - PLAYER_HEIGHT; 
-    targetX = player.x; // Define o alvo inicial
-    player.velocityY = 0;
-    player.isGrounded = true;
-}
-
-
-// 7. Lógica Principal de Movimento e Colisão (Adaptada para Movimento do Mundo)
-
+// 7. Lógica Principal de Movimento e Colisão
 function applyPhysicsAndCollisions() {
-    // Movimento do Jogador (Gravidade e Transição de Pista)
     player.update();
 
     // Movimento do Mundo (World Scroll)
     currentLevelEntities.forEach(entity => {
         entity.x -= WORLD_SPEED;
     });
-    generationDistance += WORLD_SPEED;
     
-    // Geração de novas entidades
     generateEntities();
 
-    // Colisão (Apenas colisões verticais e interações são relevantes)
     player.isGrounded = false;
 
+    // Colisão
     currentLevelEntities.forEach(entity => {
         if (!entity.toRemove && checkAABB(player, entity)) {
             
-            // Colisão com o Chão (a única plataforma relevante)
             if (entity.type === 'platform') {
                 if (player.velocityY >= 0 && player.y + player.height <= entity.y + player.velocityY) {
                     player.velocityY = 0;
                     player.y = entity.y - player.height;
                     player.isGrounded = true;
                 }
-            } 
-            
-            // Interações
-            else if (entity.type === 'coin') {
+            } else if (entity.type === 'coin') {
                 entity.toRemove = true;
                 coins++;
                 updateUI();
             } else if (entity.type === 'enemy') {
-                // Em Subway Surfers, inimigos e obstáculos não podem ser pulados (geralmente)
                 handleDeath();
             }
         }
     });
 
-    // Limites da Tela (APENAS VERTICAL)
+    // Limites da Tela (Queda)
     if (player.y > GAME_HEIGHT) {
         handleDeath();
     }
@@ -143,8 +277,8 @@ function applyPhysicsAndCollisions() {
 function draw() {
     ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    // Linhas Guia para as pistas (Opcional, para ajudar a visualizar)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    // Linhas Guia para as pistas
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; // Linhas mais escuras
     ctx.lineWidth = 2;
     LANES_X.forEach(x => {
         ctx.beginPath();
@@ -153,26 +287,32 @@ function draw() {
         ctx.stroke();
     });
 
-    // Desenha as Entidades
     currentLevelEntities.forEach(entity => {
         entity.draw();
-        // Os inimigos agora só se movem com o mundo, então removemos entity.update()
     });
 
     player.draw();
 }
 
-// 9. Controle de Eventos (AGORA CONTROLA A TROCA DE PISTAS)
+function gameLoop() {
+    if (gameRunning) {
+        applyPhysicsAndCollisions();
+        draw();
+    }
+    requestAnimationFrame(gameLoop);
+}
+
+// 9. Controle de Eventos (Troca de Pista)
 document.addEventListener('keydown', (e) => {
     if (!gameRunning) return;
     
-    // Pulo (vertical)
+    // Pulo
     if ((e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') && player.isGrounded) {
         player.velocityY = JUMP_VELOCITY;
         player.isGrounded = false;
     }
 
-    // Troca de Pista (horizontal)
+    // Troca de Pista
     if (e.key === 'ArrowLeft' || e.key === 'a') {
         if (currentLane > 0) {
             currentLane--;
@@ -184,14 +324,13 @@ document.addEventListener('keydown', (e) => {
             targetX = LANES_X[currentLane] - PLAYER_WIDTH / 2;
         }
     }
-    // O movimento de X do jogador é tratado no player.update() para ser suave
 });
 
 document.addEventListener('keyup', (e) => {
-    // Não precisamos mais de keyup, pois o movimento é baseado em posição alvo
+    // Não é necessário keyup
 });
 
-// 10. Inicia o Jogo (MANTIDO)
+// 10. Inicia o Jogo
 function startGame() {
     initializeGame();
     gameRunning = true;
